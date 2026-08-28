@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, List, Optional
 
 from selenium import webdriver
@@ -12,6 +12,7 @@ from selenium.common.exceptions import (JavascriptException, TimeoutException,
                                         WebDriverException)
 from selenium.webdriver.support.ui import WebDriverWait
 
+from . import challenge as challenge_mod
 from .config import Config
 
 log = logging.getLogger("crawler.browser")
@@ -27,6 +28,9 @@ class RenderedPage:
     content_type: str = ""
     error: Optional[str] = None
     cookies: List[dict] = field(default_factory=list)
+    # Set when the document turned out to be an anti-bot wall rather than the
+    # page we asked for.  See webcrawler/challenge.py.
+    challenge: Optional[challenge_mod.Challenge] = None
 
 
 # Promote lazy-loading attributes into real ones, force-load native lazy images
@@ -61,6 +65,17 @@ def build_driver(cfg: Config) -> webdriver.Remote:
     if cfg.browser == "firefox":
         return _build_firefox(cfg)
     return _build_chrome(cfg)
+
+
+def build_solver_driver(cfg: Config) -> webdriver.Remote:
+    """A visible window for you to sign in or clear a challenge in.
+
+    Always headed -- the whole point is that a person can see and use it.  It
+    gets its own throwaway profile because Chrome refuses to share a
+    ``--user-data-dir`` with the workers that are already running.
+    """
+    visible = replace(cfg, headless=False, user_data_dir=None, block_media=False)
+    return build_driver(visible)
 
 
 def _build_chrome(cfg: Config) -> webdriver.Chrome:
@@ -250,4 +265,9 @@ def render(driver: webdriver.Remote, url: str, cfg: Config) -> RenderedPage:
 
     if not page.html.strip():
         page.error = page.error or "empty document"
+        return page
+
+    # Did we get the page, or the bouncer standing in front of it?
+    page.challenge = challenge_mod.detect(
+        page.html, page.title, page.status, page.final_url)
     return page
