@@ -13,9 +13,22 @@ things `requests` + BeautifulSoup would never see.
 
 ## Install
 
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). Install it once:
+
 ```bash
-python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
+
+Then, in this folder:
+
+```bash
+uv sync
+```
+
+That creates `.venv/`, installs the exact versions pinned in `uv.lock`, and
+installs this project itself — so every machine gets the same, known-good build.
+There is no `activate` step: prefix commands with `uv run`. The two entry
+points are also installed as `crawl-pages` and `crawl-serve`.
 
 You need Chrome (or Firefox) installed. The matching driver is downloaded
 automatically by Selenium Manager — nothing else to set up.
@@ -23,7 +36,7 @@ automatically by Selenium Manager — nothing else to set up.
 ## Use
 
 ```bash
-python crawl.py https://example.com
+uv run crawl.py https://example.com
 ```
 
 Then open the site map it prints at the end:
@@ -40,34 +53,34 @@ so you can keep clicking down through children and grandchildren without a netwo
 
 ```bash
 # go deeper and wider, with more browsers in parallel
-python crawl.py https://docs.example.com --max-depth 5 --max-pages 1000 --workers 6
+uv run crawl.py https://docs.example.com --max-depth 5 --max-pages 1000 --workers 6
 
 # only one section of a site
-python crawl.py https://example.com/blog/ --path-prefix /blog/
+uv run crawl.py https://example.com/blog/ --path-prefix /blog/
 
 # include subdomains too
-python crawl.py https://example.com --include-subdomains
+uv run crawl.py https://example.com --include-subdomains
 
 # a site that needs a login: a window opens, you sign in, press ENTER
-python crawl.py https://app.example.com --manual-login
+uv run crawl.py https://app.example.com --manual-login
 
 # a site behind a CAPTCHA / "checking your browser" screen:
 # it pauses, you clear the check once, and the session is saved for next time
-python crawl.py https://example.com --workers 1 --save-cookies session.json
-python crawl.py https://example.com --cookies session.json --resume
+uv run crawl.py https://example.com --workers 1 --save-cookies session.json
+uv run crawl.py https://example.com --cookies session.json --resume
 
 # continue where a previous run stopped (same output folder)
-python crawl.py https://example.com --max-pages 2000 --resume
+uv run crawl.py https://example.com --max-pages 2000 --resume
 
 # HTML only, no images/CSS/JS
-python crawl.py https://example.com --no-assets
+uv run crawl.py https://example.com --no-assets
 ```
 
 Some pages behave better over `http://` than `file://` (service workers, strict
 `fetch` code). If one looks off, serve the folder:
 
 ```bash
-python serve.py output/example.com
+uv run serve.py output/example.com
 ```
 
 ---
@@ -103,8 +116,8 @@ opens no matter how many workers are running.
 Save what you earn, and later runs start already past the wall:
 
 ```bash
-python crawl.py https://example.com --save-cookies session.json
-python crawl.py https://example.com --cookies session.json --resume
+uv run crawl.py https://example.com --save-cookies session.json
+uv run crawl.py https://example.com --cookies session.json --resume
 ```
 
 Cloudflare's `cf_clearance` is tied to your IP and user agent, so keep both the
@@ -156,7 +169,7 @@ site map and out to the live page. Turn it off with `--no-nav`.
 
 ## Options
 
-Run `python crawl.py --help` for the full list.
+Run `uv run crawl.py --help` for the full list.
 
 **Scope**
 
@@ -259,5 +272,5 @@ Run `python crawl.py --help` for the full list.
 ## Tests
 
 ```bash
-python tests/test_challenge.py      # or: python -m pytest tests/
+uv run pytest                       # or: uv run tests/test_challenge.py
 ```

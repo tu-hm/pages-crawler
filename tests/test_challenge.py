@@ -1,6 +1,6 @@
 """Tests for anti-bot wall detection and the human hand-off.
 
-Run with `python -m pytest tests/` or just `python tests/test_challenge.py`.
+Run with `uv run pytest` or just `uv run tests/test_challenge.py`.
 
 The detector matters most in the negative direction: a false positive stops a
 crawl and bothers you about a page that was fine, so the "must not flag" cases

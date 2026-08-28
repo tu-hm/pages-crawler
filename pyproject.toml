@@ -1,0 +1,38 @@
+[project]
+name = "crawler-pages"
+description = "Recursive Selenium website crawler that produces a browsable offline copy."
+readme = "README.md"
+requires-python = ">=3.10"
+dynamic = ["version"]
+dependencies = [
+    "selenium>=4.47,<5",
+    "beautifulsoup4>=4.15,<5",
+    "lxml>=6.1,<7",
+    "requests>=2.34,<3",
+]
+
+[project.scripts]
+crawl-pages = "crawl:main"
+crawl-serve = "serve:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4,<9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "webcrawler/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+include = ["webcrawler", "crawl.py", "serve.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.uv]
+# Resolve against released, stable versions only -- no pre-releases.
+prerelease = "disallow"

@@ -7,7 +7,7 @@ follows links depth-first through the whole site, downloads the CSS / JS / image
 / fonts each page needs, and rewrites all URLs so the result can be browsed
 offline by double-clicking a file.
 
-    python crawl.py https://example.com
+    uv run crawl.py https://example.com
     open output/example.com/index.html
 """
 from __future__ import annotations
