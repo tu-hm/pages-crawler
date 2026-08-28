@@ -104,6 +104,23 @@ def build_parser() -> argparse.ArgumentParser:
                          help="JSON file of cookies to load before crawling")
     browser.add_argument("--manual-login", action="store_true",
                          help="open the start page and wait for ENTER before crawling")
+    browser.add_argument("--save-cookies", type=Path, metavar="FILE",
+                         help="write the session out when done, to reuse with --cookies")
+
+    walls = p.add_argument_group(
+        "anti-bot walls",
+        "When a page turns out to be a CAPTCHA or 'checking your browser' screen, "
+        "the crawl pauses and opens a window so you can clear it yourself; the "
+        "session it earns is reused for the rest of the run. Nothing is solved "
+        "automatically.")
+    walls.add_argument("--no-solve", dest="solve_challenges", action="store_false",
+                       help="never prompt -- just record walled pages as blocked")
+    walls.add_argument("--challenge-wait", type=float, default=12.0, metavar="SEC",
+                       help="how long to let a check clear itself before asking you (default: 12)")
+    walls.add_argument("--retries", type=int, default=2, metavar="N",
+                       help="retries when a host rate-limits us (default: 2)")
+    walls.add_argument("--backoff", type=float, default=5.0, metavar="SEC",
+                       help="first pause after a rate limit, doubles each retry (default: 5)")
 
     assets = p.add_argument_group("assets")
     assets.add_argument("--no-assets", dest="download_assets", action="store_false",
@@ -116,6 +133,8 @@ def build_parser() -> argparse.ArgumentParser:
     misc = p.add_argument_group("other")
     misc.add_argument("--ignore-robots", dest="respect_robots", action="store_false",
                       help="do not honour robots.txt (only for sites you control)")
+    misc.add_argument("--no-sitemap", dest="from_sitemap", action="store_false",
+                      help="do not seed the queue from the site's sitemap.xml")
     misc.add_argument("--resume", action="store_true",
                       help="continue a previous crawl in the same output folder")
     misc.add_argument("--no-nav", dest="inject_nav", action="store_false",
@@ -170,11 +189,17 @@ def make_config(args: argparse.Namespace) -> Config:
         delay=args.delay,
         user_data_dir=args.user_data_dir,
         cookies_file=args.cookies,
+        save_cookies=args.save_cookies,
         manual_login=args.manual_login,
+        solve_challenges=args.solve_challenges,
+        challenge_wait=args.challenge_wait,
+        max_retries=max(0, args.retries),
+        backoff=max(0.0, args.backoff),
         block_media=args.block_media,
         download_assets=args.download_assets,
         max_asset_mb=args.max_asset_mb,
         respect_robots=args.respect_robots,
+        from_sitemap=args.from_sitemap and not args.rewrite_only,
         resume=args.resume or args.rewrite_only,
         inject_nav=args.inject_nav,
         keep_raw=args.keep_raw,
@@ -187,6 +212,24 @@ def make_config(args: argparse.Namespace) -> Config:
         cfg.headless = False
         cfg.workers = 1
     return cfg
+
+
+def _print_wall_advice(cfg: Config, stats: dict) -> None:
+    """Say something useful about pages we could not get past."""
+    print()
+    print(f"  Blocked by a wall: {stats['walled']} page(s)")
+    if stats["cleared"]:
+        print(f"    You cleared {stats['cleared']} check(s) during this run.")
+    print("    What usually works, in order:")
+    if not cfg.save_cookies:
+        print("      1. Re-run with --save-cookies session.json, clear the check once,")
+        print("         then use --cookies session.json from then on.")
+    else:
+        print(f"      1. Re-run with --cookies {cfg.save_cookies} --resume to reuse this session.")
+    print("      2. Slow down: --workers 1 --delay 3   (most blocks are just rate limits)")
+    print("      3. If the site is yours: add a Cloudflare WAF skip rule for your IP")
+    print("         or a secret header, instead of fighting the challenge.")
+    print("      4. Check whether the site has an API or data export -- usually easier.")
 
 
 def main(argv=None) -> int:
@@ -218,6 +261,12 @@ def main(argv=None) -> int:
     print(f"  Deepest level    : {stats['max_depth_seen']}")
     if stats["blocked"]:
         print(f"  Skipped (robots) : {stats['blocked']}")
+    if stats["walled"]:
+        print(f"  Blocked by wall  : {stats['walled']}"
+              + (f"  ({stats['cleared']} cleared by you)" if stats["cleared"] else ""))
+    if stats["throttled"]:
+        hosts = ", ".join(f"{h} x{m:.0f}" for h, m in sorted(stats["throttled"].items())[:3])
+        print(f"  Slowed down for  : {hosts}")
     if stats["failed"]:
         print(f"  Failed           : {stats['failed']}")
         for url, error in stats["failures"][:5]:
@@ -229,6 +278,9 @@ def main(argv=None) -> int:
     print(f"  Open it:   open {index}")
     print(f"  Or serve:  python serve.py {cfg.output_dir}")
     print("=" * 66)
+
+    if stats["walled"]:
+        _print_wall_advice(cfg, stats)
     return 0 if stats["pages"] else 1
 
 

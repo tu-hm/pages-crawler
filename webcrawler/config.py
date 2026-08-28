@@ -81,8 +81,18 @@ class Config:
     delay: float = 0.4               # politeness delay between requests per worker
     user_data_dir: Optional[str] = None
     cookies_file: Optional[Path] = None
+    save_cookies: Optional[Path] = None   # write the session back out when done
     manual_login: bool = False
     block_media: bool = False        # don't let the browser fetch video/audio
+
+    # --- anti-bot walls ----------------------------------------------------
+    # When a page turns out to be a CAPTCHA / interstitial rather than content,
+    # open a window and let *you* clear it, then reuse that session.  Nothing
+    # here solves a challenge automatically.
+    solve_challenges: bool = True
+    challenge_wait: float = 12.0     # grace period for a self-clearing check
+    max_retries: int = 2             # retries for rate limits / transient errors
+    backoff: float = 5.0             # first backoff pause, doubles each retry
 
     # --- assets ------------------------------------------------------------
     download_assets: bool = True
@@ -92,6 +102,7 @@ class Config:
 
     # --- behaviour ---------------------------------------------------------
     respect_robots: bool = True
+    from_sitemap: bool = True        # seed the queue from /sitemap.xml when present
     resume: bool = False
     inject_nav: bool = True
     keep_raw: bool = True
